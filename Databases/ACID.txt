@@ -1,0 +1,104 @@
+ACID - Atomicity Consistency Isolation Durability
+
+Overview:
+Atomicity: Either the all the operations are completed or none. This ensures consistent and 
+reliable transactions. Especially, in banking systems where transactions include deduction and 
+addition as a whole process.
+
+import (
+    "database/sql"
+)
+
+func transfer (db *sql.DB, fromId, toId, amount int) error {
+    tx, err := db.Begin()
+    if err != nil {
+        log.Fatal (err)
+    }
+
+    _, err := tx.Exec(`Update accounts Set balance = balance - $1 where id = $2`, amount, fromId)
+    if err != nil {
+        tx.Rollback()
+        return fmt.Errorf("Error")
+    }
+
+    _, err := tx.Exec(`Update accounts Set balance = balance + $1 where id = $2`, amount, toId)
+    if err != nil {
+        tx.Rollback()
+        return fmt.Errorf("Error")
+    }
+
+    err := tx.Commit()
+    if err != nil {
+        return fmt.Errorf("Error")
+    }
+    return
+}
+
+func main () {
+    connStr := "some string"
+    db, err := sql.Open("mySql", connStr)
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer db.Close()
+
+    transfer ()
+}
+
+
+Consistency : This means how correct the system is, and a system should move from one valid 
+state to another. How recent or up to date a our data is.
+
+Consistency Levels:
+Linearizability Consistency: Requests are executed in an defifnite and seriealized order, 
+as if a single computer is managing all the requests.
+
+Eventual Consistency: All nodes don't have latest piece of information. Data may diverge 
+initilally, but is guranteed to converge after a certain amount of time. It is highly available.
+
+Causal Consistency: Dependent operations are carried out linearly and in order.
+
+Quorum: In distributed systems, where data is replicated on multiple node (replicas) for 
+fault tolerance. Waiting for all the nodes to acknowledge a write before any read will make the
+system highly unavailable. To handle this we have this quorum.
+
+R + W > N - strong consistency but lowr availability.
+R + w <= N - eventual consistency and higher availability.
+
+R - is the number of read acknowledgements received.
+W - is the number of write acknowledgements received.
+N - is the number of replicas (replication factor)
+
+
+SPLIT BRAIN PROBLEM
+Suppose you have 3 nodes, a write happens on a node and replicates to all the 
+other...so far so good. Now, there is some issue in the network, the communication between the 
+nodes break and network partition occurs. 2 nodes - partition 1, 1 - node partition 2. Each 
+partition acts as if its the main cluster. Writes and reads happen independently. But when network
+restores, they have conflicting writes, and changes may be overwritten.
+This is resolved by Quorum, where a minimum no of writes and reads are required for an operation,
+This is configured such that in case of failure only one single partition can act as leader.
+
+Isolation: When multiple transactions run concurrently, each one behaves as if it were the 
+only transaction executing in the system.
+
+Different levels of Isolation:
+
+Read Uncommited: There are two transactions occuring in parallel, both transactions read the latest 
+value from the db, and can read the uncommited changes of other transactions. Also, if one transaction 
+rollsback after updating a row, there is a dirty read for the other one.
+
+Read Commmited: The transactions only read commited values from the other transaction. This avoids non-repeatable reads because reading same
+row twice may give different data.
+
+Repeatable Read: This solves the issue mentioned in read committed. It takes a snapshot of data at the start and makes updates and reads
+from that sanpshot, thus maintaing consistency among the repeatable reads. Although, it handles the reads of same row twice, but in case of insertion
+of a new row, it causes phantom reads.
+
+Seriazeable: It makes the transactions appear as if they are executed one at a time although they may actually run in parallel.
+This is carried out through
+1. Lock based (2PL - two phased locks) - A transaction acquires read locks and write locks till it commits.
+2.MVCC-based (e.g., PostgreSQL, Oracle, modern systems)
+	•	Instead of heavy locking, they use Serializable Snapshot Isolation (SSI).
+	•	DB tracks conflicts between concurrent transactions (like write–write or read–write dependencies).
+	•	If a serialization anomaly could occur, one transaction is rolled back.
