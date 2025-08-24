@@ -1,0 +1,32 @@
+Caches are small and low latency data storage used to store frequently accessed data. Retreiving data from DB involves latency which is not encouraged
+in cases where a piece of data is frequently asked for. This introduces the need to use fast data retreivals.
+Caching is not just a 'store and retrieve' system, but it involves various policies and stategies.
+
+1) Placement of the Cache
+ - Cache can be placed on the client side (bowser storage, indexedDB, session storage, local storage) or server side (in- memory cache, redis, memchache, db -level cache)
+
+2) Population of Cache
+    a) Write - Back
+        In this policy, the database is eventually consistent, but persistence takes a toll. Here's why: The updates happen fast and only cache is updated.
+        The DB may be updated after a certain amount of time (event-based) or a certain amount of updates. The time between the DB update may cause some inconsistency for
+        services accessing the DB directly. Also, in case of cache failure, the db might not get updated and the data may be lost, this is why this policy 
+        is not persistent.
+    b) Write - through
+        This is highy consistent as the cache and DB both are updated on every write and also reads are super fast and consistent. But this is very inefficient
+        as writes are very slow.
+    c) Write - around
+        The writes happen all in DN and cache may contain stale data, but the efficiency is high and data is persistent. There may be TTL added to data,
+        after which the data reloads into cache and eventual consistency of cache is reached.
+
+When we're done with Placement and Population, we're down to cache life cycle, like what happens when the size of the cache exceeds.
+But before we go any further, let's discuss an issue called thrashing in caches.
+
+Thrashing
+    This may happen when the cache size is too small compared to the relevant information to be stored or the eviction policies are not efficient.
+    Suppose the cache size is small and the data accessed is large, the frequently used keys would also get evicted frequently and cache would be 
+    busy with unwanted eviction instead if actual retrievals. This may cause caches to lose it low latency benefit even though it's working haed.
+
+If we think of a simple solution, FIFO may come to our mind, removing the first inserted element from the cache and replacing it with a new value.
+But this may cause thrashing if if want to frequently access the data we retrieved first, but FIFO keeps evicting it.
+
+Other policies are LRU (Least Recently Used) and LFU (Least Frequently Used)
